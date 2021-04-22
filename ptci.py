@@ -106,27 +106,12 @@ def main(mainParms):
   pt.readGlobalConfig()
   print(pt.globalConfig)
 
-
   # Okay, what are we supposed to do here?
   if mode == 'read':
     slotNum = int(args.config)
+    print("\nSlot %d Configuration:\n----------------------------------" %(slotNum))
     pt.readSlot(slotNum)
     print(pt.slots[0])
-
-
-
-  print("\nSlot 1 Configuration:\n----------------------------------")
-
-
-
-
-  
-
-
-
-
-
-
 
 if __name__ == "__main__":
   ap = argparse.ArgumentParser()
@@ -138,8 +123,8 @@ if __name__ == "__main__":
   args = ap.parse_args()
   logger = logging.getLogger('main')
   # Because we might become a daemon, we need to canonicalize our path to our configuration file
-  mainParms = {'serialPort': args.serial, 'logger':logger, 'throttle':args.throttle, 'slot':args.config, 'readToFile':args.read, 'writeToThrottle':args.write, 'mode':''}
-   
+  mainParms = {'serialPort': args.serial, 'logger':logger, 'throttle':args.throttle, 'slot':args.config, 'readToFile':args.read, 'writeToThrottle':args.write, 'mode':'read'}
+
   try:
     main(mainParms)
   except Exception as e:
