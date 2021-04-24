@@ -115,7 +115,20 @@ class protothrottle(object):
       print("ERROR: Throttle not found")
       return None
 
-    print("Throttle HW version %d.%d - Firmware Git Rev: %06x" % (rxPkt.data[4], rxPkt.data[5], 0xFFFFFF & ((rxPkt.data[1]<<16) + (rxPkt.data[2]<<8) + rxPkt.data[3])) )
+    if len(rxPkt.data) < 9:
+      print("ERROR: Version packet in unexpected form")
+      return None
+    
+    if rxPkt.data[6] != ord('C') or rxPkt.data[7] != ord('S') or rxPkt.data[8] != ord('T'):
+      print("ERROR: Address 0x%02X is not a ProtoThrottle" % targetAddr)
+      return None
+
+    if len(rxPkt.data) >= 12:
+      version = (rxPkt.data[9],rxPkt.data[10],rxPkt.data[11])
+    else:
+      version = (1,0,0)
+
+    print("Throttle HW version %d.%d - Firmware version %d.%d.%d git rev: %06x" % (rxPkt.data[4], rxPkt.data[5], version[0], version[1], version[2], 0xFFFFFF & ((rxPkt.data[1]<<16) + (rxPkt.data[2]<<8) + rxPkt.data[3])) )
 
     mem = self.readMemory(self.bus, targetAddr, 0x0E, 2)
     # The first versions of firmware didn't put an EEP layout number in place
@@ -129,6 +142,7 @@ class protothrottle(object):
       'hw_minor':rxPkt.data[5],
       'eep_major':mem[0],
       'eep_minor':mem[1],
+      'version':version,
       'gitrev': '%06x' % ((rxPkt.data[1]<<16) + (rxPkt.data[2]<<8) + rxPkt.data[3])
     }
 
@@ -143,9 +157,12 @@ class protothrottle(object):
     if self.version == None:
       raise IOError('Throttle Not Responding')
     
+    if self.version['version'] < (1,2,0):
+      raise IOError('Throttle version too low')
+    
     
     # Based on version, attach the correct interpreter
-    self.interpreter = pt_interpreter_v11()
+    self.interpreter = pt_interpreter_v12()
     self.interpreter.help()
     self.slots = [{ } for i in range(20)]
     self.globalConfig = { }
@@ -194,7 +211,7 @@ class protothrottle(object):
     self.writeMemory(self.bus, self.throttleAddr, self.interpreter.getSlotStart(slotNum), self.interpreter.getSlotLen(slotNum), slotmem)
 
   
-class pt_interpreter_v11(object):
+class pt_interpreter_v12(object):
 
   def __init__(self):
     self.numConfigSlots     = 20
