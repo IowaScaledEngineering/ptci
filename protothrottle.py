@@ -194,8 +194,27 @@ class protothrottle(object):
       return { }
     return self.slots[slotNum-1]
 
-    
-    
+  def getAll(self):
+    config = { 'type':'full' }
+    config['global'] = self.globalConfig
+    for slotNum in range(1,21):
+      config["slot%02d" % slotNum] = self.getSlot(slotNum)
+    return config
+
+  def setAll(self, config):
+    if 'type' not in config.keys() or config['type'] != 'full':
+      raise Exception("Cannot figure out what type of configuration this is")
+
+    if config['global'] in self.keys():
+      pass
+      #FIXME - Need to set global parameters
+
+    for slotNum in range(1,21):
+      slotName = "slot%02d"
+      if slotName in config.keys():
+        self.setSlot(slotNum, config[slotName])
+
+
   def writeGlobalConfig(self):
     memStart = 0x10
     memLen = 0x70
@@ -331,6 +350,9 @@ class pt_interpreter_v12(object):
     return globalConfValues
 
   def writeSlotConfig(self, configSlotValues):
+    if 'type' not in configSlotValues.keys() or configSlotValues['type'] != 'configslot':
+      raise Exception("Cannot figure out what type of configuration this is")
+
     mem = [0xFF for i in range(self.slotConfMemLen)]
 
     # Clean up the address and handle the case where it's either not all there
@@ -449,7 +471,7 @@ class pt_interpreter_v12(object):
 
    
   def readSlotConfig(self, mem):
-    configSlotValues = { }
+    configSlotValues = { 'type':'configslot' }
     
     addrVal = struct.unpack("<H", mem[0x00:0x02])[0]
     if (addrVal & 0x8000):

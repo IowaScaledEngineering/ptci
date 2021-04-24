@@ -50,6 +50,24 @@ def findXbeePort():
       return p.device
   return None
    
+   
+def prompt_yesno(promptText, promptDefault=False):
+  if promptDefault == True:
+    prompt = " [Y/n] "
+  elif promptDefault == False:
+    prompt = " [y/N] "
+
+  while True:
+    sys.stdout.write(promptText + prompt)
+    choice = input().lower()
+    if choice == '':
+      return promptDefault
+    elif choice =='y':
+      return True
+    elif choice =='n':
+      return False
+    else:
+      print("Not a valid selection\n")
 
 def main(mainParms):
   # Unpack incoming parameters
@@ -125,10 +143,42 @@ def main(mainParms):
 
     with open(mainParms['writeToThrottle'], 'r') as f:
       conf = json.load(f)
-      print("Writing locomotive %d configuration to throttle %c slot %d" % (conf['address'], throttleLetter, slotNum))
+      if not prompt_yesno("Confirm writing loco %d to Throttle %c slot %d" % (conf['address'], throttleLetter, slotNum)):
+        return
+      print("Writing locomotive %d configuration to Throttle %c slot %d" % (conf['address'], throttleLetter, slotNum))
       pt.setSlot(slotNum, conf)
       pt.writeSlot(slotNum)
       print("Write successful")
+
+  elif mode in ('readall'):
+    print("Reading throttle configuration")
+    pt.readGlobalConfig()
+
+    for slotNum in range(1,21):
+      start = time.time()
+      print("Read slot %d..." % (slotNum), end='')
+      pt.readSlot(slotNum)
+      end = time.time()
+      print("  Complete [%04d] %.1fs" % (pt.getSlot(slotNum)['address'], end-start))
+
+    conf = pt.getAll()
+
+    with open(mainParms['readToFile'], 'w') as f:
+      y = json.dumps(conf, indent=2)
+      f.write(y)
+
+  elif mode in ('writeall'):
+    with open(mainParms['writeToThrottle'], 'r') as f:
+      conf = json.load(f)
+
+      if not prompt_yesno("Confirm overwrite all configurations for Throttle %c" % (throttleLetter)):
+        return
+    
+      
+    
+
+
+
 
 if __name__ == "__main__":
   ap = argparse.ArgumentParser()
@@ -137,6 +187,9 @@ if __name__ == "__main__":
   ap.add_argument("-c", "--config", help="config slot number", type=int, default=1)
   ap.add_argument("-r", "--read", help="read throttle to file", type=str, default=None)
   ap.add_argument("-w", "--write", help="write file to throttle", type=str, default=None)
+  ap.add_argument("-R", "--readall", help="read total throttle to file", type=str, default=None)
+  ap.add_argument("-W", "--writeall", help="write total configuration to throttle", type=str, default=None)
+
   args = ap.parse_args()
   logger = logging.getLogger('main')
 
@@ -144,14 +197,25 @@ if __name__ == "__main__":
   if None !=args.read  and None != args.write:
     print("ERROR: Cannot read and write at the same time - pick one or the other")
   
+  readFile = None
+  writeFile = None
+  
   if None != args.read:
-    mode = 'read'
+    mode = 'read' 
+    readFile = args.read
   elif None != args.write:
     mode = 'write'
+    writeFile = args.write
+  elif None != args.readall:
+    mode = 'readall'
+    readFile = args.readall
+  elif None != args.writeall:
+    mode = 'writeall'
+    writeFile = args.writeall
   else:
     mode = 'display'
   
-  mainParms = {'serialPort': args.serial, 'logger':logger, 'throttle':args.throttle, 'slot':args.config, 'readToFile':args.read, 'writeToThrottle':args.write, 'mode':mode}
+  mainParms = {'serialPort': args.serial, 'logger':logger, 'throttle':args.throttle, 'slot':args.config, 'readToFile':readFile, 'writeToThrottle':writeFile, 'mode':mode}
 
   try:
     main(mainParms)
