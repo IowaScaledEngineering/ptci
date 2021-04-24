@@ -107,11 +107,28 @@ def main(mainParms):
   print(pt.globalConfig)
 
   # Okay, what are we supposed to do here?
-  if mode == 'read':
+  if mode in ('read', 'display'):
     slotNum = int(args.config)
     print("\nSlot %d Configuration:\n----------------------------------" %(slotNum))
+
     pt.readSlot(slotNum)
-    print(pt.slots[0])
+    conf = pt.getSlot(slotNum)
+    print(conf)
+
+    if mode == 'read':
+      with open(mainParms['readToFile'], 'w') as f:
+        y = json.dumps(conf, indent=2)
+        f.write(y)
+
+  elif mode in ('write'):
+    slotNum = int(args.config)
+
+    with open(mainParms['writeToThrottle'], 'r') as f:
+      conf = json.load(f)
+      print("Writing locomotive %d configuration to throttle %c slot %d" % (conf['address'], throttleLetter, slotNum))
+      pt.setSlot(slotNum, conf)
+      pt.writeSlot(slotNum)
+      print("Write successful")
 
 if __name__ == "__main__":
   ap = argparse.ArgumentParser()
@@ -122,8 +139,19 @@ if __name__ == "__main__":
   ap.add_argument("-w", "--write", help="write file to throttle", type=str, default=None)
   args = ap.parse_args()
   logger = logging.getLogger('main')
-  # Because we might become a daemon, we need to canonicalize our path to our configuration file
-  mainParms = {'serialPort': args.serial, 'logger':logger, 'throttle':args.throttle, 'slot':args.config, 'readToFile':args.read, 'writeToThrottle':args.write, 'mode':'read'}
+
+
+  if None !=args.read  and None != args.write:
+    print("ERROR: Cannot read and write at the same time - pick one or the other")
+  
+  if None != args.read:
+    mode = 'read'
+  elif None != args.write:
+    mode = 'write'
+  else:
+    mode = 'display'
+  
+  mainParms = {'serialPort': args.serial, 'logger':logger, 'throttle':args.throttle, 'slot':args.config, 'readToFile':args.read, 'writeToThrottle':args.write, 'mode':mode}
 
   try:
     main(mainParms)

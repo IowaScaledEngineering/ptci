@@ -1,6 +1,7 @@
 import mrbus
 from mrbus import packet
 import time
+import struct
 
 def readEEPResponseValidate(txPkt, rxPkt):
   if len(rxPkt.data) == (txPkt.data[2] + 2) and (rxPkt.data[0] + (rxPkt.data[1]*256)) == (txPkt.data[0] + (txPkt.data[1]*256)):
@@ -202,13 +203,19 @@ class protothrottle(object):
     # confmem = readMemory(mrbee, throttleAddr, 0x10, memLen)
     # Canonicalize memory into dictionary to fit in global conf
     # self.globalConfig = { } # FIXME
-    
+
+  def setSlot(self, slotNum, conf):
+    if slotNum > self.interpreter.numConfigSlots:
+      return
+    self.slots[slotNum-1] = conf
+
+
   def writeSlot(self, slotNum):
     if slotNum > self.interpreter.numConfigSlots:
       return
 
-    slotmem = self.interpreter.writeSlotMem(self.slots[slotNum-1])
-    self.writeMemory(self.bus, self.throttleAddr, self.interpreter.getSlotStart(slotNum), self.interpreter.getSlotLen(slotNum), slotmem)
+    slotmem = self.interpreter.writeSlotConfig(self.slots[slotNum-1])
+    self.writeMemory(self.bus, self.throttleAddr, self.interpreter.getSlotStart(slotNum), slotmem)
 
   
 class pt_interpreter_v12(object):
@@ -323,7 +330,7 @@ class pt_interpreter_v12(object):
     
     return globalConfValues
 
-  def writeSlotConfig(self):
+  def writeSlotConfig(self, configSlotValues):
     mem = [0xFF for i in range(self.slotConfMemLen)]
 
     # Clean up the address and handle the case where it's either not all there
@@ -345,37 +352,37 @@ class pt_interpreter_v12(object):
     if addrType == 'short':
       addrVal = 0x8000 | (0x7FFF & addrVal)
     
-    mem[0x00] = (addrVal & 0xFF)
-    mem[0x01] = (addrVal>>8) & 0xFF
-
-    mem[0x02] = funcNameToValue(configSlotValues, 'funcHorn')
-    mem[0x03] = funcNameToValue(configSlotValues, 'funcBell')
-    mem[0x04] = funcNameToValue(configSlotValues, 'funcBrake')
-    mem[0x13] = funcNameToValue(configSlotValues, 'funcBrakeOff')
-    mem[0x05] = funcNameToValue(configSlotValues, 'funcAuxButton')
+    b = struct.pack("<H", addrVal)
+    mem[0x00] = b[0]
+    mem[0x01] = b[1]
+    mem[0x02] = self.funcNameToValue(configSlotValues, 'funcHorn')
+    mem[0x03] = self.funcNameToValue(configSlotValues, 'funcBell')
+    mem[0x04] = self.funcNameToValue(configSlotValues, 'funcBrake')
+    mem[0x13] = self.funcNameToValue(configSlotValues, 'funcBrakeOff')
+    mem[0x05] = self.funcNameToValue(configSlotValues, 'funcAuxButton')
     
-    mem[0x06] = funcNameToValue(configSlotValues, 'funcEngineOn')
-    mem[0x07] = funcNameToValue(configSlotValues, 'funcEngineOff')
-    mem[0x0A] = funcNameToValue(configSlotValues, 'funcFrontHeadlight')
-    mem[0x08] = funcNameToValue(configSlotValues, 'funcFrontDim1')
-    mem[0x09] = funcNameToValue(configSlotValues, 'funcFrontDim2')
+    mem[0x06] = self.funcNameToValue(configSlotValues, 'funcEngineOn')
+    mem[0x07] = self.funcNameToValue(configSlotValues, 'funcEngineOff')
+    mem[0x0A] = self.funcNameToValue(configSlotValues, 'funcFrontHeadlight')
+    mem[0x08] = self.funcNameToValue(configSlotValues, 'funcFrontDim1')
+    mem[0x09] = self.funcNameToValue(configSlotValues, 'funcFrontDim2')
     
-    mem[0x0B] = funcNameToValue(configSlotValues, 'funcFrontDitchlight')
-    mem[0x0E] = funcNameToValue(configSlotValues, 'funcRearHeadlight')
-    mem[0x0C] = funcNameToValue(configSlotValues, 'funcRearDim1')
-    mem[0x0D] = funcNameToValue(configSlotValues, 'funcRearDim2')
-    mem[0x0F] = funcNameToValue(configSlotValues, 'funcRearDitchlight')
+    mem[0x0B] = self.funcNameToValue(configSlotValues, 'funcFrontDitchlight')
+    mem[0x0E] = self.funcNameToValue(configSlotValues, 'funcRearHeadlight')
+    mem[0x0C] = self.funcNameToValue(configSlotValues, 'funcRearDim1')
+    mem[0x0D] = self.funcNameToValue(configSlotValues, 'funcRearDim2')
+    mem[0x0F] = self.funcNameToValue(configSlotValues, 'funcRearDitchlight')
 
 
-    mem[0x10] = funcNameToValue(configSlotValues, 'funcUpButton')
-    mem[0x11] = funcNameToValue(configSlotValues, 'funcDownButton')
-    mem[0x12] = funcNameToValue(configSlotValues, 'funcThrottleUnlock')
-    mem[0x14] = funcNameToValue(configSlotValues, 'funcReverserSwap')
-    mem[0x30] = funcNameToValue(configSlotValues, 'funcCompressor')
+    mem[0x10] = self.funcNameToValue(configSlotValues, 'funcUpButton')
+    mem[0x11] = self.funcNameToValue(configSlotValues, 'funcDownButton')
+    mem[0x12] = self.funcNameToValue(configSlotValues, 'funcThrottleUnlock')
+    mem[0x14] = self.funcNameToValue(configSlotValues, 'funcReverserSwap')
+    mem[0x30] = self.funcNameToValue(configSlotValues, 'funcCompressor')
 
-    mem[0x31] = funcNameToValue(configSlotValues, 'funcBrakeTest')
-    mem[0x32] = funcNameToValue(configSlotValues, 'funcReverserCentered')
-    mem[0x33] = funcNameToValue(configSlotValues, 'funcAlerter')
+    mem[0x31] = self.funcNameToValue(configSlotValues, 'funcBrakeTest')
+    mem[0x32] = self.funcNameToValue(configSlotValues, 'funcReverserCentered')
+    mem[0x33] = self.funcNameToValue(configSlotValues, 'funcAlerter')
 
     # Set notch slots to default values
     mem[0x20] = 7;
@@ -394,9 +401,27 @@ class pt_interpreter_v12(object):
           mem[0x20 + notch - 1] = max(1, min(126, int(configSlotValues[notchName])))
         except:
           pass
+
+    # Forced On functions 0x18-0x1B as bitmask
+    fon = 0
+    for bit in range(0, 29):
+      if ("F%02d" % (bit)) in configSlotValues['forceOn']:
+        fon = fon | (1<<bit)
+    b = struct.pack("<I", fon)
+    for i in range(0, 4):
+      mem[0x18 + i] = b[i]
     
+    # Forced Off functions 0x1C-0x1F as bitmask
+    foff = 0
+    for bit in range(0, 29):
+      if ("F%02d" % (bit)) in configSlotValues['forceOff']:
+        foff = foff | (1<<bit)
+    b = struct.pack("<I", foff)
+    for i in range(0, 4):
+      mem[0x1C + i] = b[i]
+
     if 'brakePulseWidthMilliseconds' in configSlotValues.keys():
-      mem[0x16] = max(2, min(10, configSlotValues['brakePulseWidthMilliseconds'] / 100.0))
+      mem[0x16] = max(2, min(10, int(configSlotValues['brakePulseWidthMilliseconds']) / 100.0))
 
     options = 0x01
 
@@ -426,7 +451,7 @@ class pt_interpreter_v12(object):
   def readSlotConfig(self, mem):
     configSlotValues = { }
     
-    addrVal = (mem[1]<<8) + mem[0]
+    addrVal = struct.unpack("<H", mem[0x00:0x02])[0]
     if (addrVal & 0x8000):
       configSlotValues['addressType'] = 'short'
       configSlotValues['address'] = addrVal & 0x7FFF
@@ -469,6 +494,19 @@ class pt_interpreter_v12(object):
     configSlotValues['notch7Speed'] = "%d" % mem[0x26]
     configSlotValues['notch8Speed'] = "%d" % mem[0x27]
     
+    # Forced On functions 0x18-0x1B as bitmask
+    configSlotValues['forceOn'] = []
+    fon = struct.unpack("<I", mem[0x18:0x1C])[0]
+    for bit in range(0, 29):
+      if fon & (1<<bit):
+        configSlotValues['forceOn'].append("F%02d" % (bit))
+    
+    # Forced Off functions 0x1C-0x1F as bitmask
+    configSlotValues['forceOff'] = []
+    foff = struct.unpack("<I", mem[0x1C:0x20])[0]
+    for bit in range(0, 29):
+      if foff & (1<<bit):
+        configSlotValues['forceOff'].append("F%02d" % (bit))
     
     configSlotValues['brakePulseWidthMilliseconds'] = "%d" % (mem[0x16] * 100)
     
